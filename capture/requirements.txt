@@ -1,0 +1,3 @@
+# Pi capture agent (Slice E outbound WS). Install on the Pi:
+#   pip3 install --user -r requirements.txt
+websockets>=12.0,<14

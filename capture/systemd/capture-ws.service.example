@@ -1,0 +1,23 @@
+[Unit]
+Description=HID capture outbound WebSocket agent (Slice E photo)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dev
+Group=dev
+WorkingDirectory=/home/dev/capture
+EnvironmentFile=-/etc/hid-capture.env
+EnvironmentFile=-/home/dev/capture/.env
+# libcamera / rpicam-* need a user runtime dir under systemd (else still can hang → HID timeout).
+# If uid is not 1000: id -u   then set /run/user/<uid>
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/bin/python3 /home/dev/capture/scripts/capture_ws.py
+Restart=always
+RestartSec=3
+# Do NOT set NoNewPrivileges=yes — blocks sudo -n systemctl for whip.service.
+# Install: sudoers/capture-whip.sudoers → /etc/sudoers.d/capture-whip
+
+[Install]
+WantedBy=multi-user.target

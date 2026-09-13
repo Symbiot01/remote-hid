@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"name": "web-hid",
+			"path": "."
+		},
+		{
+			"path": "../HID"
+		}
+	],
+	"settings": {}
+}

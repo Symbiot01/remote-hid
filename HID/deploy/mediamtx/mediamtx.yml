@@ -1,0 +1,48 @@
+###############################################
+# MediaMTX — operator camera path "cam"
+# Docs: https://github.com/bluenviron/mediamtx
+###############################################
+
+logLevel: info
+
+# RTSP (optional debug). Leave enabled; block 8554 on public firewall if unused.
+rtsp: yes
+rtspAddress: :8554
+
+# Not needed for Pi → browser WHIP/WHEP MVP
+rtmp: no
+hls: no
+
+# Pi Slice C ingest (stock ffmpeg cannot WHIP). GCP: UDP 8890 → tag testin.
+srt: yes
+srtAddress: :8890
+
+# WebRTC: WHIP publish + WHEP play on :8889; ICE on UDP :8189
+webrtc: yes
+webrtcAddress: :8889
+webrtcEncryption: no
+webrtcLocalUDPAddress: :8189
+
+# Helps browsers/Pi behind NAT. Also set MTX_WEBRTCADDITIONALHOSTS in Coolify.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# Open for first bring-up. Tighten before production (dedicated publish user).
+authInternalUsers:
+  - user: any
+    pass:
+    permissions:
+      - action: api
+      - action: read
+      - action: publish
+      - action: playback
+
+paths:
+  # Pi publishes → …/cam/whip
+  # Browser plays  → …/cam/whep
+  # Test player    → …/cam
+  cam:
+
+  # Browser Stream-test tab loopback (WHIP + WHEP). Keep separate from cam.
+  # Anyone who can reach /desk/whip can publish until auth is tightened.
+  desk:

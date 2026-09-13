@@ -1,0 +1,10 @@
+# Passwordless systemctl for Slice E still vs Slice C SRT (camera lock).
+# Install on the Pi (adjust user if not "dev"):
+#
+#   sudo cp /home/dev/capture/sudoers/capture-whip.sudoers /etc/sudoers.d/capture-whip
+#   sudo chmod 440 /etc/sudoers.d/capture-whip
+#   sudo visudo -cf /etc/sudoers.d/capture-whip
+#
+# Allows only: systemctl stop|start|is-active whip.service
+
+dev ALL=(root) NOPASSWD: /usr/bin/systemctl stop whip.service, /usr/bin/systemctl start whip.service, /usr/bin/systemctl is-active whip.service, /bin/systemctl stop whip.service, /bin/systemctl start whip.service, /bin/systemctl is-active whip.service

@@ -1,0 +1,26 @@
+services:
+  mediamtx:
+    build: .
+    image: web-hid-mediamtx:local
+    restart: unless-stopped
+    # So Coolify/Traefik can reach this container (fixes HTTPS 502).
+    networks:
+      - coolify
+    ports:
+      # Host publish still needed for WebRTC ICE from the internet.
+      - "8189:8189/udp"
+      # Pi SRT publish (path cam). Firewall: allow-testin-srt udp:8890.
+      - "8890:8890/udp"
+      # Optional LAN/debug RTSP (prefer closed on public firewall).
+      - "8554:8554"
+    # HTTP WHIP/WHEP: Coolify proxies 443 → container port 8889 (set in UI).
+    # Do not rely on publishing 8889 on the host; expose for clarity.
+    expose:
+      - "8889"
+    environment:
+      # Example: mediarelay.sahilpatel.online,34.42.4.172
+      MTX_WEBRTCADDITIONALHOSTS: ${MTX_WEBRTCADDITIONALHOSTS:-}
+
+networks:
+  coolify:
+    external: true

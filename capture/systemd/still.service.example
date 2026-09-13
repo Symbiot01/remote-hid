@@ -1,0 +1,20 @@
+[Unit]
+Description=HID capture still HTTP (localhost + token)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/capture
+EnvironmentFile=-/etc/hid-capture.env
+EnvironmentFile=-/home/pi/capture/.env
+ExecStart=/usr/bin/python3 /home/pi/capture/still_server.py
+Restart=on-failure
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

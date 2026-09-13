@@ -1,0 +1,30 @@
+{
+  "name": "operator-console",
+  "version": "3.0.0",
+  "description": "Password-gated remote operator console: binary HID relay + React UI",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "build": "npm --prefix web ci && npm --prefix web run build",
+    "build:web": "npm --prefix web run build",
+    "start": "node src/index.js",
+    "dev:server": "node --watch src/index.js",
+    "dev:web": "npm --prefix web run dev",
+    "dev": "npx concurrently -k -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cookie": "^1.0.2",
+    "cookie-signature": "^1.2.2",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

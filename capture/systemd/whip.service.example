@@ -1,0 +1,19 @@
+[Unit]
+Description=HID capture SRT publisher (MediaMTX path cam)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dev
+WorkingDirectory=/home/dev/capture
+EnvironmentFile=-/etc/hid-capture.env
+EnvironmentFile=-/home/dev/capture/.env
+ExecStart=/home/dev/capture/scripts/publish_whip.sh
+Restart=always
+RestartSec=5
+# Camera + network; do not put secrets on the command line.
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

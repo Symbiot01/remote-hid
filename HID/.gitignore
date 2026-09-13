@@ -1,0 +1,11 @@
+node_modules/
+web/node_modules/
+.env
+*.log
+.DS_Store
+npm-debug.log*
+.idea/
+.vscode/
+src/public/assets/
+src/public/index.html
+

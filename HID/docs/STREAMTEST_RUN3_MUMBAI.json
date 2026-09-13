@@ -1,0 +1,66 @@
+{
+  "when": "2026-08-27T19:09:49.703Z",
+  "pathHint": "webrelay.sahilpatel.online",
+  "mediaBase": "https://mediarelay.sahilpatel.online",
+  "mediaPath": "desk",
+  "cameraNote": "1920x1080 @ 30 → canvas 1920x1080",
+  "note": "Run 3 Mumbai mediarelay (testin). See STREAMTEST_LOG.md. Stills local+received 1920x1080.",
+  "tests": [
+    {
+      "metric": "Glass-to-glass (QR)",
+      "n": 50,
+      "attempted": 50,
+      "p50": 675,
+      "p95": 1075,
+      "p99": 1388,
+      "lossPct": 0,
+      "notes": "miss ticks 6; 1920x1080 @ 30 → canvas 1920x1080"
+    },
+    {
+      "metric": "Glass-to-glass (QR)",
+      "n": 50,
+      "attempted": 50,
+      "p50": 668,
+      "p95": 851,
+      "p99": 4939,
+      "lossPct": 0,
+      "notes": "miss ticks 7; 1920x1080 @ 30 → canvas 1920x1080"
+    },
+    {
+      "metric": "Glass-to-glass (QR)",
+      "n": 50,
+      "attempted": 50,
+      "p50": 598,
+      "p95": 752,
+      "p99": 767,
+      "lossPct": 0,
+      "notes": "miss ticks 7; 1920x1080 @ 30 → canvas 1920x1080"
+    }
+  ],
+  "peerStats": [
+    {
+      "when": "2026-08-27T19:09:31.720Z",
+      "role": "whip",
+      "rttMs": null,
+      "jitterMs": null,
+      "bitrateKbps": 1073.8086763373526,
+      "framesPerSecond": 12,
+      "framesDropped": null,
+      "framesReceived": null,
+      "framesSent": 1340,
+      "resolution": "1920x1080"
+    },
+    {
+      "when": "2026-08-27T19:09:32.532Z",
+      "role": "whep",
+      "rttMs": 76,
+      "jitterMs": 15,
+      "bitrateKbps": 1365.7358388854727,
+      "framesPerSecond": null,
+      "framesDropped": 7,
+      "framesReceived": 1117,
+      "framesSent": null,
+      "resolution": "1920x1080"
+    }
+  ]
+}

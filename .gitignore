@@ -1,0 +1,41 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+**/.env
+!**/.env.example
+secrets.h
+**/include/secrets.h
+*.pem
+*.key
+credentials.json
+
+# Dependencies and build output
+node_modules/
+**/node_modules/
+.pio/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+dist-ssr/
+
+# HID Vite emit (Docker rebuilds this)
+HID/src/public/assets/
+HID/src/public/index.html
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.log
+npm-debug.log*
+
+# Local captures
+*.jpg
+*.jpeg
+*.h264
+*.mp4
+*.mkv

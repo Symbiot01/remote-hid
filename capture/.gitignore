@@ -1,0 +1,24 @@
+# Secrets and local env
+.env
+*.env
+!env.example
+
+# Captures / encodes
+/tmp/
+*.jpg
+*.jpeg
+*.h264
+*.mp4
+*.mkv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
