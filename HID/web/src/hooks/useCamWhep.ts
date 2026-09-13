@@ -32,9 +32,20 @@ export function useCamWhep(
   };
 
   const detachVideo = () => {
+    const stream = streamRef.current;
+    streamRef.current = null;
+    if (stream) {
+      for (const t of stream.getTracks()) {
+        try {
+          t.stop();
+        } catch {
+          // ignore
+        }
+        stream.removeTrack(t);
+      }
+    }
     const v = videoRefStable.current;
     if (v) v.srcObject = null;
-    streamRef.current = null;
   };
 
   const stopSession = async () => {
@@ -56,6 +67,9 @@ export function useCamWhep(
     if (!stream) {
       stream = new MediaStream();
       streamRef.current = stream;
+    }
+    for (const t of stream.getTracks()) {
+      if (t.readyState === 'ended') stream.removeTrack(t);
     }
     if (ev.track && !stream.getTracks().some((t) => t.id === ev.track.id)) {
       stream.addTrack(ev.track);
@@ -102,7 +116,7 @@ export function useCamWhep(
           setStatus('live');
           setError(null);
           retryRef.current = 0;
-        } else if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+        } else if (st === 'failed' || st === 'closed') {
           setStatus('error');
           setError(
             st === 'failed'
@@ -111,6 +125,26 @@ export function useCamWhep(
           );
           session.pc.removeEventListener('connectionstatechange', onConn);
           scheduleRetry();
+        } else if (st === 'disconnected') {
+          // ICE often flaps disconnected→connected. Immediate retry leaked
+          // PeerConnections and decoder buffers until the tab OOM'd.
+          setStatus('error');
+          setError('Video disconnected');
+          clearTimer();
+          timerRef.current = window.setTimeout(() => {
+            if (generation !== genRef.current) return;
+            const now = session.pc.connectionState;
+            if (now === 'connected' || now === 'connecting') {
+              if (now === 'connected') {
+                setStatus('live');
+                setError(null);
+                retryRef.current = 0;
+              }
+              return;
+            }
+            session.pc.removeEventListener('connectionstatechange', onConn);
+            scheduleRetry();
+          }, 2000);
         }
       };
       session.pc.addEventListener('connectionstatechange', onConn);

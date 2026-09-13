@@ -73,42 +73,50 @@ export async function startQrOverlayPipeline(opts?: {
   }
   const ctx = ctxRaw;
 
-  let qrCanvas: HTMLCanvasElement | null = null;
+  const qrCanvas = document.createElement('canvas');
+  qrCanvas.width = QR_SIZE;
+  qrCanvas.height = QR_SIZE;
+  let qrReady = false;
+  let qrInFlight = false;
   let lastQrMs = 0;
+  let lastDrawMs = 0;
   let running = true;
   let raf = 0;
+  const frameIntervalMs = 1000 / fps;
 
-  async function refreshQr(now: number) {
-    // Refresh QR ~10 Hz so codes stay scannable after encode latency.
-    if (now - lastQrMs < 100 && qrCanvas) return;
+  function refreshQr(now: number) {
+    // One in-flight encode, ~10 Hz. The old path called toDataURL+Image on
+    // every rAF until the first QR landed — that stacked decoded bitmaps
+    // until the tab OOM'd during Stream-test.
+    if (qrInFlight) return;
+    if (qrReady && now - lastQrMs < 100) return;
+    qrInFlight = true;
     lastQrMs = now;
     const payload = `${LATENCY_PREFIX}${Date.now()}`;
-    const dataUrl = await QRCode.toDataURL(payload, {
+    void QRCode.toCanvas(qrCanvas, payload, {
       errorCorrectionLevel: 'M',
       margin: 1,
       width: QR_SIZE,
       color: { dark: '#000000', light: '#ffffff' },
-    });
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('QR image load failed'));
-      img.src = dataUrl;
-    });
-    const c = document.createElement('canvas');
-    c.width = QR_SIZE;
-    c.height = QR_SIZE;
-    const qctx = c.getContext('2d');
-    if (!qctx) return;
-    qctx.drawImage(img, 0, 0);
-    qrCanvas = c;
+    })
+      .then(() => {
+        if (running) qrReady = true;
+      })
+      .catch((err: unknown) => {
+        opts?.onError?.(err instanceof Error ? err : new Error(String(err)));
+      })
+      .finally(() => {
+        qrInFlight = false;
+      });
   }
 
-  function drawFrame() {
+  function drawFrame(ts: number) {
     if (!running) return;
-    void refreshQr(Date.now()).catch((err) => {
-      opts?.onError?.(err instanceof Error ? err : new Error(String(err)));
-    });
+    raf = requestAnimationFrame(drawFrame);
+    if (ts - lastDrawMs < frameIntervalMs - 1) return;
+    lastDrawMs = ts;
+
+    refreshQr(Date.now());
 
     const vw = video.videoWidth || preferWidth;
     const vh = video.videoHeight || preferHeight;
@@ -122,7 +130,7 @@ export async function startQrOverlayPipeline(opts?: {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, dx, dy, dw, dh);
 
-    if (qrCanvas) {
+    if (qrReady) {
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
       ctx.fillRect(
         QR_MARGIN - 8,
@@ -132,8 +140,6 @@ export async function startQrOverlayPipeline(opts?: {
       );
       ctx.drawImage(qrCanvas, QR_MARGIN, QR_MARGIN);
     }
-
-    raf = requestAnimationFrame(drawFrame);
   }
 
   raf = requestAnimationFrame(drawFrame);
@@ -198,8 +204,10 @@ export function startLatencySampler(
     }
     // Decode only the top-left region where we draw the QR (faster + sharper).
     const region = Math.min(w, h, Math.round(Math.max(w, h) * 0.35));
-    sampleCanvas.width = region;
-    sampleCanvas.height = region;
+    if (sampleCanvas.width !== region || sampleCanvas.height !== region) {
+      sampleCanvas.width = region;
+      sampleCanvas.height = region;
+    }
     ctx.drawImage(remoteVideo, 0, 0, region, region, 0, 0, region, region);
     const image = ctx.getImageData(0, 0, region, region);
     const code = jsQR(image.data, region, region, {

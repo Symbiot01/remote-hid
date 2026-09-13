@@ -138,7 +138,11 @@ wssHid.on('connection', (ws) => {
     }
 
     const result = forwarder.forwardLiveFrame(buf);
-    if (!result.ok && result.message !== 'Key not supported') {
+    if (
+      !result.ok &&
+      result.message !== 'Key not supported' &&
+      result.message !== 'Device busy'
+    ) {
       if (ws.readyState === 1) {
         ws.send(JSON.stringify({ type: 'error', message: result.message }));
       }

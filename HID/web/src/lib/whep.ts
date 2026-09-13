@@ -98,6 +98,13 @@ export async function startWhep(
     pc,
     resourceUrl,
     stop: async () => {
+      for (const receiver of pc.getReceivers()) {
+        try {
+          receiver.track?.stop();
+        } catch {
+          // ignore
+        }
+      }
       pc.close();
       if (resourceUrl) {
         try {

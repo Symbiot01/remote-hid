@@ -5,6 +5,8 @@ const { WebSocket } = require('ws');
 const KEY_EVENTS_PER_SEC = 250;
 const MOUSE_EVENTS_PER_SEC = 250;
 const FLAG_SEQ = 0x01;
+/** Design: drop, do not queue more than ~50 live frames if the dongle stalls. */
+const DEVICE_SEND_BUFFER_LIMIT = 50 * 10;
 
 const OP_KEY_DOWN = 1;
 const OP_KEY_UP = 2;
@@ -171,6 +173,9 @@ class Forwarder {
     }
     if (!this.isDeviceConnected()) {
       return { ok: false, message: 'Device not connected' };
+    }
+    if (this.device.bufferedAmount > DEVICE_SEND_BUFFER_LIMIT) {
+      return { ok: false, message: 'Device busy' };
     }
     try {
       this.device.send(buf);

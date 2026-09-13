@@ -123,6 +123,16 @@ export function StreamTestView({ active }: Props) {
 
     const remote = remoteVideoRef.current;
     if (remote) {
+      const ms = remote.srcObject;
+      if (ms instanceof MediaStream) {
+        for (const t of ms.getTracks()) {
+          try {
+            t.stop();
+          } catch {
+            // ignore
+          }
+        }
+      }
       remote.srcObject = null;
     }
     const mount = localMountRef.current;
@@ -262,7 +272,9 @@ export function StreamTestView({ active }: Props) {
             remote.srcObject = new MediaStream();
           }
           const ms = remote.srcObject as MediaStream;
-          ms.addTrack(ev.track);
+          if (!ms.getTracks().some((t) => t.id === ev.track.id)) {
+            ms.addTrack(ev.track);
+          }
           void remote.play().catch((err) => {
             appendLog(`Remote play: ${(err as Error).message}`);
           });

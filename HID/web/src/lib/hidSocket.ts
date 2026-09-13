@@ -13,9 +13,13 @@ export type HidSocket = {
   close: () => void;
 };
 
+/** Drop live frames if the browser WS send buffer grows (device/path stall). */
+const SEND_BUFFER_LIMIT = 4096;
+
 export function createHidSocket(handlers: HidSocketHandlers = {}): HidSocket {
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let closed = false;
   const onStatus = handlers.onStatus ?? (() => undefined);
   const onError = handlers.onError ?? (() => undefined);
   const onOpen = handlers.onOpen ?? (() => undefined);
@@ -27,32 +31,48 @@ export function createHidSocket(handlers: HidSocketHandlers = {}): HidSocket {
 
   function sendJson(msg: object): boolean {
     if (!isOpen() || !ws) return false;
+    if (ws.bufferedAmount > SEND_BUFFER_LIMIT) return false;
     ws.send(JSON.stringify(msg));
     return true;
   }
 
   function sendBinary(arrayBuffer: ArrayBuffer): boolean {
     if (!isOpen() || !ws) return false;
+    // Design: drop, do not queue a mouse storm. Unbounded send() is an OOM.
+    if (ws.bufferedAmount > SEND_BUFFER_LIMIT) return false;
     ws.send(arrayBuffer);
     return true;
   }
 
   function open(): void {
+    closed = false;
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    const prev = ws;
+    ws = null;
+    if (prev) {
+      try {
+        prev.close();
+      } catch {
+        // ignore
+      }
+    }
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${window.location.host}/ws/hid`;
-    ws = new WebSocket(wsUrl);
-    ws.binaryType = 'arraybuffer';
+    const socket = new WebSocket(wsUrl);
+    socket.binaryType = 'arraybuffer';
+    ws = socket;
 
-    ws.addEventListener('open', () => {
+    socket.addEventListener('open', () => {
+      if (ws !== socket) return;
       onOpen();
       sendJson({ type: 'ping' });
     });
 
-    ws.addEventListener('message', (event) => {
+    socket.addEventListener('message', (event) => {
+      if (ws !== socket) return;
       if (typeof event.data !== 'string') return;
       let msg: { type?: string; deviceConnected?: boolean; message?: string };
       try {
@@ -68,14 +88,17 @@ export function createHidSocket(handlers: HidSocketHandlers = {}): HidSocket {
       }
     });
 
-    ws.addEventListener('close', () => {
+    socket.addEventListener('close', () => {
+      if (ws !== socket) return;
       onClose();
+      if (closed) return;
       reconnectTimer = setTimeout(open, 2000);
     });
 
-    ws.addEventListener('error', () => {
+    socket.addEventListener('error', () => {
+      if (ws !== socket) return;
       try {
-        ws?.close();
+        socket.close();
       } catch {
         // ignore
       }
@@ -83,13 +106,16 @@ export function createHidSocket(handlers: HidSocketHandlers = {}): HidSocket {
   }
 
   function close(): void {
+    closed = true;
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
-    if (ws) {
+    const socket = ws;
+    ws = null;
+    if (socket) {
       try {
-        ws.close();
+        socket.close();
       } catch {
         // ignore
       }
