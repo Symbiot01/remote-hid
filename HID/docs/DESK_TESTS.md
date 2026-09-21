@@ -69,6 +69,25 @@ Pass when:
 
 Pass when text appears on the target and live keys still work afterward.
 
+Paste checks:
+
+- The editor accepts exactly 4,000 characters and rejects the 4,001st.
+- Paced mode allows up to 300 WPM.
+- While sending, `Cursor: sent / total` advances from relay dispatch progress;
+  it does not claim USB-device acknowledgement.
+- Cancel stops the job, releases keys, and leaves the editor text available.
+
+## Gate 3A — Default live-key policy
+
+With live keys enabled, confirm letters, digits, punctuation, Space, Enter,
+Backspace, Shift, and CapsLock reach the target. Confirm Ctrl, Alt, Meta/Win,
+function keys, navigation keys, PrintScreen, and modifier combinations are
+blocked. Enable **Allow all keys** and confirm the full mapped HID set is
+restored.
+
+The console camera display is rotated 90 degrees. Capture stills and the
+Stream-test video remain unrotated.
+
 ## Gate 4 — Three-view focus isolation
 
 1. Split view: type in the scratch textarea while live is off → nothing on target.

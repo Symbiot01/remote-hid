@@ -152,6 +152,32 @@ export function hidUsageFromCode(code: string): number | null {
   return CODE_TO_HID[code];
 }
 
+export function isDefaultTypingCode(code: string): boolean {
+  return (
+    /^Key[A-Z]$/.test(code) ||
+    /^Digit[0-9]$/.test(code) ||
+    [
+      'Enter',
+      'Backspace',
+      'Space',
+      'Minus',
+      'Equal',
+      'BracketLeft',
+      'BracketRight',
+      'Backslash',
+      'Semicolon',
+      'Quote',
+      'Backquote',
+      'Comma',
+      'Period',
+      'Slash',
+      'CapsLock',
+      'ShiftLeft',
+      'ShiftRight',
+    ].includes(code)
+  );
+}
+
 function clampI16(n: number): number {
   const v = Number(n) || 0;
   if (v > 32767) return 32767;

@@ -24,6 +24,7 @@ export function ConsoleView() {
   const stageRef = useRef<HTMLDivElement>(null);
   const scratchRef = useRef<HTMLTextAreaElement>(null);
   const camVideoRef = useRef<HTMLVideoElement>(null);
+  const [allowAllKeys, setAllowAllKeys] = useState(false);
 
   const {
     wsConnected,
@@ -43,6 +44,7 @@ export function ConsoleView() {
     isOpen,
     stageRef,
     scratchRef,
+    allowAllKeys,
   });
 
   const camActive = view === 'focus' || view === 'split';
@@ -245,13 +247,15 @@ export function ConsoleView() {
   function stageBody(hint: string) {
     return (
       <>
-        <video
-          ref={camVideoRef}
-          className="cam-video"
-          playsInline
-          muted
-          autoPlay
-        />
+        <div className="cam-video-frame">
+          <video
+            ref={camVideoRef}
+            className="cam-video"
+            playsInline
+            muted
+            autoPlay
+          />
+        </div>
         {cam.status !== 'live' ? (
           <div className="video-placeholder cam-overlay" aria-hidden="true">
             <span>{cam.status === 'connecting' ? 'Connecting to /cam…' : 'No live video'}</span>
@@ -285,6 +289,14 @@ export function ConsoleView() {
           {mouseChrome()}
           <span className="hint muted">{cam.videoLabel}</span>
           <span className="hint muted">{live.hint}</span>
+          <label className="check-row hint muted">
+            <input
+              type="checkbox"
+              checked={allowAllKeys}
+              onChange={(e) => setAllowAllKeys(e.target.checked)}
+            />
+            Allow all keys
+          </label>
         </div>
       </>
     );

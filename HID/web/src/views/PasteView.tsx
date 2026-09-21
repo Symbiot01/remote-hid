@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Props = {
   deviceConnected: boolean;
@@ -10,6 +10,14 @@ type PasteMode = 'dump' | 'paced';
 
 const WPM_DEFAULT = 80;
 const JITTER_DEFAULT = 25;
+const MAX_CHARS = 4000;
+
+type PasteProgress = {
+  state: string;
+  sent: number;
+  total: number;
+  mode: PasteMode | null;
+};
 
 export function PasteView({ deviceConnected, liveActive, active }: Props) {
   const [text, setText] = useState('');
@@ -18,15 +26,36 @@ export function PasteView({ deviceConnected, liveActive, active }: Props) {
   const [jitterPct, setJitterPct] = useState(JITTER_DEFAULT);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<PasteProgress>({
+    state: 'idle',
+    sent: 0,
+    total: 0,
+    mode: null,
+  });
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    const events = new EventSource('/api/paste/progress');
+    events.onmessage = (event) => {
+      try {
+        setProgress(JSON.parse(event.data) as PasteProgress);
+      } catch {
+        // Ignore malformed progress events.
+      }
+    };
+    return () => events.close();
+  }, [active]);
 
   const canSend =
     active && deviceConnected && text.length > 0 && !liveActive && !busy;
+  const lineCount = Math.max(1, text.split('\n').length);
 
   async function sendPaste() {
     if (!canSend) return;
     setBusy(true);
     setStatus(mode === 'paced' ? 'Pacing on relay…' : 'Dumping…');
+    setProgress({ state: 'running', sent: 0, total: text.length, mode });
     const ac = new AbortController();
     abortRef.current = ac;
 
@@ -96,100 +125,122 @@ export function PasteView({ deviceConnected, liveActive, active }: Props) {
       /* ignore */
     }
     setStatus('Cancelled');
+    setProgress((current) => ({ ...current, state: 'cancelled' }));
     setBusy(false);
   }
 
   return (
-    <section className="card">
-      <p className="paste-lead muted">
-        WPM and jitter are applied on the <strong>HID relay</strong> between WebSocket
-        chunks. The ESP32 only prints what it receives — its USB rate is not those
-        settings and can differ from the paced interval.
-      </p>
-
-      <fieldset className="paste-mode" disabled={busy}>
-        <legend className="sr-only">Paste mode</legend>
-        <label className="radio-row">
-          <input
-            type="radio"
-            name="paste-mode"
-            checked={mode === 'paced'}
-            onChange={() => setMode('paced')}
-          />
-          <span>
-            <strong>Paced</strong> — relay waits between characters (WPM + jitter)
-          </span>
-        </label>
-        <label className="radio-row">
-          <input
-            type="radio"
-            name="paste-mode"
-            checked={mode === 'dump'}
-            onChange={() => setMode('dump')}
-          />
-          <span>
-            <strong>Dump</strong> — send ASAP; ESP32 <code>Keyboard.print</code> flood
-          </span>
-        </label>
-      </fieldset>
-
-      {mode === 'paced' ? (
-        <div className="paste-pace" aria-label="Relay pacing controls">
-          <label className="field" htmlFor="paste-wpm">
-            <span>
-              WPM (relay) — {wpm}
-              <span className="hint"> · 5 chars = 1 word</span>
-            </span>
-            <input
-              id="paste-wpm"
-              type="range"
-              min={20}
-              max={180}
-              step={5}
-              value={wpm}
-              disabled={busy}
-              onChange={(e) => setWpm(Number(e.target.value))}
-            />
-          </label>
-          <label className="field" htmlFor="paste-jitter">
-            <span>
-              Jitter (relay) — {jitterPct}%
-              <span className="hint"> · random scale of interval, not WebRTC jitter</span>
-            </span>
-            <input
-              id="paste-jitter"
-              type="range"
-              min={0}
-              max={50}
-              step={5}
-              value={jitterPct}
-              disabled={busy}
-              onChange={(e) => setJitterPct(Number(e.target.value))}
-            />
-          </label>
+    <section className="card paste-workspace">
+      <header className="paste-ide-header">
+        <div className="paste-file-tab" aria-label="Open document">
+          <span className="paste-file-dot" aria-hidden="true" />
+          <span>paste.txt</span>
+          {text ? <span className="paste-file-dirty">●</span> : null}
         </div>
-      ) : null}
+        <span className={`paste-connection ${deviceConnected ? 'online' : ''}`}>
+          {deviceConnected ? 'Target ready' : 'Target offline'}
+        </span>
+      </header>
 
-      <label className="field" htmlFor="paste-text">
-        <span>Text to type on the target</span>
-        <textarea
-          id="paste-text"
-          rows={8}
-          maxLength={2000}
-          placeholder="Paste a block to type on the target…"
-          spellCheck={false}
-          disabled={busy}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-      </label>
-      <div className="meta-row">
-        <span className="muted">{text.length} / 2000</span>
+      <div className="paste-toolbar">
+        <fieldset className="paste-mode" disabled={busy}>
+          <legend className="sr-only">Paste mode</legend>
+          <label className="radio-row">
+            <input
+              type="radio"
+              name="paste-mode"
+              checked={mode === 'paced'}
+              onChange={() => setMode('paced')}
+            />
+            <span>Paced</span>
+          </label>
+          <label className="radio-row">
+            <input
+              type="radio"
+              name="paste-mode"
+              checked={mode === 'dump'}
+              onChange={() => setMode('dump')}
+            />
+            <span>Dump</span>
+          </label>
+        </fieldset>
+
+        {mode === 'paced' ? (
+          <div className="paste-pace" aria-label="Relay pacing controls">
+            <label className="paste-slider" htmlFor="paste-wpm">
+              <span>WPM <strong>{wpm}</strong></span>
+              <input
+                id="paste-wpm"
+                type="range"
+                min={20}
+                max={300}
+                step={5}
+                value={wpm}
+                disabled={busy}
+                onChange={(e) => setWpm(Number(e.target.value))}
+              />
+            </label>
+            <label className="paste-slider" htmlFor="paste-jitter">
+              <span>Jitter <strong>{jitterPct}%</strong></span>
+              <input
+                id="paste-jitter"
+                type="range"
+                min={0}
+                max={50}
+                step={5}
+                value={jitterPct}
+                disabled={busy}
+                onChange={(e) => setJitterPct(Number(e.target.value))}
+              />
+            </label>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="paste-editor-shell">
+        <div className="paste-editor-title">
+          <span>INPUT</span>
+          <span className="muted">UTF-8 · {MAX_CHARS} chars max</span>
+        </div>
+        <label className="paste-editor" htmlFor="paste-text">
+          <div className="paste-gutter" aria-hidden="true">
+            {Array.from({ length: lineCount }, (_, index) => (
+              <span key={index}>{index + 1}</span>
+            ))}
+          </div>
+          <textarea
+            id="paste-text"
+            rows={10}
+            maxLength={MAX_CHARS}
+            placeholder="Paste text to type on the target…"
+            spellCheck={false}
+            disabled={busy}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="paste-statusbar">
+        <span>{text.length} / {MAX_CHARS} chars</span>
         <span className="muted" aria-live="polite">
           {status}
         </span>
       </div>
-      <div className="actions">
+      {progress.total > 0 ? (
+        <div className="paste-progress" aria-live="polite">
+          <div className="paste-progress__labels">
+            <span>Cursor: {progress.sent} / {progress.total}</span>
+            <span>{Math.max(0, progress.total - progress.sent)} remaining</span>
+          </div>
+          <progress
+            max={progress.total}
+            value={Math.min(progress.sent, progress.total)}
+            aria-label="Paste progress"
+          />
+        </div>
+      ) : null}
+      <div className="actions paste-actions">
         <button
           type="button"
           className="btn primary"
@@ -203,7 +254,7 @@ export function PasteView({ deviceConnected, liveActive, active }: Props) {
             Cancel
           </button>
         ) : (
-          <span className="hint muted">Disabled while live keys are on</span>
+          <span className="hint muted">{liveActive ? 'Live keys active' : 'Ready'}</span>
         )}
       </div>
     </section>

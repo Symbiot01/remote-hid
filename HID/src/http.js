@@ -120,7 +120,7 @@ function createApp(opts) {
     const mode = body.mode === 'paced' ? 'paced' : 'dump';
 
     if (mode === 'dump') {
-      const result = pasteJobs.dump(text);
+      const result = await pasteJobs.dump(text);
       if (!result.ok) {
         return res.status(409).json({ error: result.message });
       }
@@ -189,6 +189,19 @@ function createApp(opts) {
           `attachment; filename="${result.filename}"`
         );
         res.setHeader('Content-Length', String(result.body.length));
+
+      app.get('/api/paste/progress', requireSession(config.sessionSecret), (req, res) => {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache, no-transform');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        const send = (progress) => {
+          res.write(`data: ${JSON.stringify(progress)}\n\n`);
+        };
+        const unsubscribe = pasteJobs.subscribe(send);
+        req.on('close', unsubscribe);
+      });
         return res.status(200).send(result.body);
       } catch {
         return res.status(500).json({ error: 'Photo failed' });

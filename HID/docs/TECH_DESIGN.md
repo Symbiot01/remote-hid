@@ -164,9 +164,10 @@ Use when the operator wants a local buffer: compose, then send, or type live whi
 
 Use for copy-paste of a block that should look like typing, not a USB flood.
 
-- Large paste area (raise cap from 2000 to 8000 chars; still chunked).
-- Controls: WPM, jitter percent, stop/pause, charset mode (see §7).
-- Progress: chars sent / remaining, current delay, pause button.
+- Large paste area capped at 4,000 characters; still chunked.
+- Controls: WPM (20–300), jitter percent, and cancel.
+- Progress: relay-dispatched chars sent / remaining with a visible cursor; this is
+        not device acknowledgement.
 - Disabled while View A/B live keys are on. Starting paste stops live keys and `releaseAll`.
 
 ### 3.4 Chrome (all views)

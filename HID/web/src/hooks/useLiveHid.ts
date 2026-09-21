@@ -6,6 +6,7 @@ import {
   OP_KEY_DOWN,
   OP_KEY_UP,
   OP_RELEASE_ALL,
+  isDefaultTypingCode,
 } from '../lib/keymap';
 
 export type ConsoleViewName = 'focus' | 'split' | 'paste' | 'selftest' | 'streamtest';
@@ -19,6 +20,7 @@ type UseLiveHidOpts = {
   isOpen: () => boolean;
   stageRef: RefObject<HTMLDivElement | null>;
   scratchRef?: RefObject<HTMLTextAreaElement | null>;
+  allowAllKeys: boolean;
 };
 
 const SQUARE_SIDE = 240;
@@ -33,8 +35,16 @@ type NavigatorWithKeyboard = Navigator & {
 };
 
 export function useLiveHid(opts: UseLiveHidOpts) {
-  const { view, deviceConnected, wsConnected, sendBinary, isOpen, stageRef, scratchRef } =
-    opts;
+  const {
+    view,
+    deviceConnected,
+    wsConnected,
+    sendBinary,
+    isOpen,
+    stageRef,
+    scratchRef,
+    allowAllKeys,
+  } = opts;
 
   const [liveActive, setLiveActive] = useState(false);
   const [inputTarget, setInputTarget] = useState<InputTarget>('none');
@@ -190,6 +200,12 @@ export function useLiveHid(opts: UseLiveHidOpts) {
       if (action === 'down' && event.repeat) return;
       const code = event.code;
       if (!code) return;
+      if (
+        !allowAllKeys &&
+        (event.ctrlKey || event.altKey || event.metaKey || !isDefaultTypingCode(code))
+      ) {
+        return;
+      }
       const usage = hidUsageFromCode(code);
       if (usage === null) return;
 
@@ -213,7 +229,7 @@ export function useLiveHid(opts: UseLiveHidOpts) {
       window.removeEventListener('keydown', down, true);
       window.removeEventListener('keyup', up, true);
     };
-  }, [sendBinary]);
+  }, [allowAllKeys, sendBinary]);
 
   // Blur / visibility
   useEffect(() => {

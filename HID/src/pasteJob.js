@@ -4,7 +4,7 @@
 const DEVICE_TEXT_MAX = 200;
 
 const WPM_MIN = 20;
-const WPM_MAX = 180;
+const WPM_MAX = 300;
 const JITTER_MIN = 0;
 const JITTER_MAX = 50;
 
@@ -58,14 +58,34 @@ class PasteJobRunner {
     /** @type {AbortController | null} */
     this._abort = null;
     this._running = false;
+    this._listeners = new Set();
+    this._progress = { state: 'idle', sent: 0, total: 0, mode: null };
   }
 
   isRunning() {
     return this._running;
   }
 
+  getProgress() {
+    return { ...this._progress };
+  }
+
+  subscribe(listener) {
+    this._listeners.add(listener);
+    listener(this.getProgress());
+    return () => this._listeners.delete(listener);
+  }
+
+  _publish(progress) {
+    this._progress = { ...this._progress, ...progress };
+    for (const listener of this._listeners) listener(this.getProgress());
+  }
+
   cancel() {
-    if (this._abort) this._abort.abort();
+    if (this._abort) {
+      this._abort.abort();
+      this._publish({ state: 'cancelled' });
+    }
     this.forwarder.releaseAll();
   }
 
@@ -73,7 +93,7 @@ class PasteJobRunner {
    * Dump: send text ASAP in ≤DEVICE_TEXT_MAX chunks (no inter-char delay).
    * @param {string} text
    */
-  dump(text) {
+  async dump(text) {
     if (this._running) {
       return { ok: false, message: 'Paste already running' };
     }
@@ -82,12 +102,29 @@ class PasteJobRunner {
     }
     const parts = dumpChunks(text);
     let chars = 0;
-    for (const part of parts) {
-      const result = this.forwarder.sendPasteText(part);
-      if (!result.ok) return result;
-      chars += result.chars;
+    this._running = true;
+    this._abort = new AbortController();
+    this._publish({ state: 'running', sent: 0, total: text.length, mode: 'dump' });
+    try {
+      for (const part of parts) {
+        if (this._abort.signal.aborted) {
+          return { ok: false, message: 'Cancelled', sent: chars, total: text.length };
+        }
+        const result = this.forwarder.sendPasteText(part);
+        if (!result.ok) {
+          this._publish({ state: 'error' });
+          return result;
+        }
+        chars += result.chars;
+        this._publish({ sent: chars });
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      this._publish({ state: 'complete', sent: chars });
+      return { ok: true, chars, mode: 'dump' };
+    } finally {
+      this._running = false;
+      this._abort = null;
     }
-    return { ok: true, chars, mode: 'dump' };
   }
 
   /**
@@ -108,6 +145,7 @@ class PasteJobRunner {
     this._abort = new AbortController();
     const { signal } = this._abort;
     let sent = 0;
+    this._publish({ state: 'running', sent: 0, total: text.length, mode: 'paced' });
 
     try {
       for (let i = 0; i < text.length; i += 1) {
@@ -130,6 +168,7 @@ class PasteJobRunner {
           const result = this.forwarder.sendPasteText(unit);
           if (!result.ok) return { ...result, sent, total: text.length };
           sent += 1;
+          this._publish({ sent });
           await sleep(nextDelayMs(wpm, jitterPct, unit[0]), signal);
           continue;
         }
@@ -137,11 +176,13 @@ class PasteJobRunner {
         const result = this.forwarder.sendPasteText(ch);
         if (!result.ok) return { ...result, sent, total: text.length };
         sent += 1;
+        this._publish({ sent });
 
         if (i < text.length - 1) {
           await sleep(nextDelayMs(wpm, jitterPct, ch), signal);
         }
       }
+      this._publish({ state: 'complete', sent });
       return { ok: true, chars: sent, mode: 'paced', wpm, jitterPct };
     } finally {
       this._running = false;

@@ -6,7 +6,7 @@ const signature = require('cookie-signature');
 
 const COOKIE_NAME = 'op_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-const PASTE_MAX_CHARS = 2000;
+const PASTE_MAX_CHARS = 4000;
 
 /**
  * Timing-safe string compare.
