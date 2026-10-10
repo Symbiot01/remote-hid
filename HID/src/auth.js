@@ -6,10 +6,9 @@ const signature = require('cookie-signature');
 
 const COOKIE_NAME = 'op_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-const PASTE_MAX_CHARS = 4000;
 
 /**
- * Timing-safe string compare.
+ * Timing-safe string compare. Length mismatches still spend a compare.
  * @param {string} provided
  * @param {string} expected
  * @returns {boolean}
@@ -126,32 +125,23 @@ function requireSession(sessionSecret) {
 }
 
 /**
- * Origin check for browser WebSocket upgrades.
+ * Browser WebSocket upgrades must come from this host.
+ * In development the Vite server on port 5173 is also allowed.
  * @param {import('http').IncomingMessage} req
  * @param {string} nodeEnv
- * @returns {boolean}
  */
 function isAllowedOrigin(req, nodeEnv) {
   const origin = req.headers.origin;
-  if (!origin) {
-    return nodeEnv !== 'production';
-  }
+  if (!origin) return nodeEnv !== 'production';
   try {
-    const o = new URL(origin);
+    const parsed = new URL(origin);
     const hostHeader = req.headers.host;
-    if (!hostHeader) {
-      return false;
-    }
-    if (o.host === hostHeader) {
-      return true;
-    }
-    // Vite dev proxy (npm run dev): browser Origin is :5173, backend Host is :8080
+    if (!hostHeader) return false;
+    if (parsed.host === hostHeader) return true;
     if (nodeEnv !== 'production') {
       const viteDev =
-        (o.hostname === 'localhost' || o.hostname === '127.0.0.1') && o.port === '5173';
-      if (viteDev) {
-        return true;
-      }
+        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') && parsed.port === '5173';
+      if (viteDev) return true;
     }
     return false;
   } catch {
@@ -161,7 +151,6 @@ function isAllowedOrigin(req, nodeEnv) {
 
 module.exports = {
   COOKIE_NAME,
-  PASTE_MAX_CHARS,
   SESSION_TTL_MS,
   verifyPassword,
   createSessionToken,

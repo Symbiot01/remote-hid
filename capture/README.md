@@ -107,6 +107,38 @@ Open `https://mediarelay.sahilpatel.online/cam/`. Campus Wi‑Fi often blocks UD
 
 ---
 
+## 3c. LookCam instead of the Pi CSI camera
+
+The operator Focus view already plays MediaMTX path `cam`. A LookCam does not use `rpicam-vid`. On its own access point it has no RTSP server. The laptop, or a phone on the same LAN, runs `scripts/lookcam_bridge.py`. That keeps the PPPP session, obeys the console, and uploads H.264 only while someone is watching the Stream tab. The console transcodes into MediaMTX. Settings commands from that tab use the same session. Handshake and command list: [`docs/LOOKCAM.md`](docs/LOOKCAM.md).
+
+```bash
+export BRIDGE_URL=http://127.0.0.1:8080
+export BRIDGE_TOKEN=...   # operator_console/.env, never commit it
+export LOOKCAM_IFACE=wlo1
+export LOOKCAM_BIND=192.168.100.22
+python3 scripts/lookcam_bridge.py
+```
+
+`LOOKCAM_PASSWORD` belongs in `operator_console/.env`, not in the browser.
+
+Stills (`rpicam-still`, Slice E) do not apply. Do not port-forward 554. Do not commit a packet capture or a URL that contains a password.
+
+`publish_lookcam.sh` is only for a later RTSP URL. It does not speak PPPP. When a URL does play in VLC:
+
+```bash
+# Laptop MediaMTX (HTTP 8889 is published here; production compose is not)
+cd HID/deploy/mediamtx
+docker compose -f docker-compose.local.yml up --build -d
+
+# capture/.env (chmod 600), then:
+cd capture
+./scripts/publish_lookcam.sh
+```
+
+Play `http://127.0.0.1:8889/cam`. For the existing website, set `LOOKCAM_SRT_URL` to `srt://mediarelay.sahilpatel.online:8890?streamid=publish:cam&pkt_size=1316` and open Focus (`/cam/whep`). If copy fails, set `LOOKCAM_TRANSCODE=1`. Campus Wi-Fi may block UDP 8890 (see `docs/SLICE_C_SRT.md`).
+
+---
+
 ## 4. Slice E — outbound WS photo
 
 1. On Coolify HID: set `CAPTURE_TOKEN` (same value as Pi). Remove any old `CAPTURE_URL`. Redeploy HID.
@@ -141,6 +173,7 @@ sudo visudo -cf /etc/sudoers.d/capture-whip
 ```text
 capture/
   README.md
+  docs/LOOKCAM.md          # PPPP handshake and JSON commands
   env.example
   requirements.txt
   still_server.py          # Slice D optional LAN debug
@@ -148,6 +181,8 @@ capture/
     slice_a_detect.sh
     slice_b_encode.sh
     publish_whip.sh        # Slice C SRT → MediaMTX /cam
+    publish_lookcam.sh     # RTSP camera → same SRT path cam
+    lookcam_bridge.py      # PPPP session, server commands, Annex-B upload
     capture_ws.py          # Slice E outbound WS agent
   systemd/
     still.service.example
