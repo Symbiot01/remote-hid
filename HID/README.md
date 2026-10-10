@@ -1,14 +1,12 @@
-# Operator Console
+# Operator console
 
-Password-gated React operator console that drives an ESP32-S3 USB HID keyboard/mouse over WebSocket.
-Live keys use **binary** frames on `/ws/hid`. Dump paste uses `POST /api/paste`.
-The device connects only to `/ws/device?token=…`.
+Password-gated operator console. The browser talks only to this server. LookCam video is published by the bridge, transcoded here, and played through session-gated WebRTC. HID keys are proxied to a separate relay. The device token stays on that relay.
 
 ## Local run
 
 ```bash
 cp .env.example .env
-# Set GATE_PASSWORD (≥16), SESSION_SECRET (≥32), DEVICE_TOKEN (≥16)
+# Set GATE_PASSWORD (≥16) and SESSION_SECRET (≥32)
 npm install
 npm run build          # Vite React → src/public
 npm start              # http://127.0.0.1:8080
@@ -18,17 +16,15 @@ Dev (API on :8080, Vite on :5173 with proxy):
 
 ```bash
 npm install
-npm run build          # first time so Express has an index if you hit :8080
+npm --prefix web install
 npm run dev
 ```
 
-Open the Vite URL `http://127.0.0.1:5173` (or production build on `:8080`), log in, wait for **Connected**, then Start live.
+## Coolify
 
-### Firmware (`web-hid`)
+This directory is the Docker build context. The image builds `web/`, serves it from `src/public`, and listens on `PORT` (image default `3000`) and `HOST` `0.0.0.0`. Set `TRUST_PROXY=1` behind the Coolify proxy. `GET /healthz` is the health check. The runtime image includes ffmpeg for the camera ingest.
 
-1. `cp include/secrets.h.example include/secrets.h` (gitignored).
-2. Set Wi-Fi, `WS_HOST`, `WS_PORT`, `WS_USE_SSL`, same `DEVICE_TOKEN`.
-3. `pio run -t upload`.
+Leave `CAPTURE_TOKEN` empty to refuse the capture agent. Leave `HID_URL` empty until the keyboard relay is listening on another port. Do not put `DEVICE_TOKEN` in this service.
 
 ## Environment
 
@@ -36,21 +32,11 @@ Open the Vite URL `http://127.0.0.1:5173` (or production build on `:8080`), log 
 |---|---|---|
 | `GATE_PASSWORD` | yes | UI password, min 16 chars |
 | `SESSION_SECRET` | yes | Cookie signing, min 32 |
-| `DEVICE_TOKEN` | yes | Device WS token, min 16 |
-| `PORT` | no | Default `8080` |
-| `HOST` | no | Default `0.0.0.0` |
-| `NODE_ENV` | no | `development` or `production` |
+| `PORT` | no | `8080` locally, `3000` in the image |
+| `HOST` | no | `127.0.0.1` locally, `0.0.0.0` in the image |
 | `TRUST_PROXY` | no | `1` behind a reverse proxy |
-
-## API / sockets
-
-- `POST /api/login` / `POST /api/logout` / `GET /api/status` / `POST /api/paste`
-- `GET /healthz`
-- `WS /ws/hid` — binary live HID; cookie + origin check
-- `WS /ws/device?token=` — ESP32 only
-
-Frontend source: `web/` (Vite + React + TypeScript). Docker builds the SPA then runs Express.
-
-## Desk tests
-
-See `docs/DESK_TESTS.md`.
+| `BRIDGE_TOKEN` | no | Empty refuses LookCam ingest |
+| `LOOKCAM_PASSWORD` | no | Delivered only to the bridge |
+| `HID_URL` | no | Relay base URL, empty disables HID |
+| `HID_GATE_PASSWORD` | with HID_URL | Min 16. Never sent to the browser |
+| `CAPTURE_TOKEN` | no | Empty refuses the capture agent |
